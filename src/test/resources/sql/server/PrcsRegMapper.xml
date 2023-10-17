@@ -1,0 +1,452 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="bar.prc.mapper.PrcsRegMapper">
+
+	<resultMap id="vo" type="bar.prc.vo.PrcsRegVO"/>
+	<resultMap id="map" type="map"/>
+	
+	<select id="getList_tree" resultMap="vo">	
+		<include refid="getListSql_tree" />
+	</select>
+	
+	<sql    id="getListSql_tree">
+		<![CDATA[
+			/*	getListSql_tree	*/
+			
+			WITH PRCS_CTE AS 
+			(
+				/* 검색조건 */
+				SELECT	A.PRCS_CMPY_CODE
+						, A.PRCS_GEN_ID
+						, A.PARENT_PRCS_GEN_ID
+						, 99 AS LVL
+				FROM	PRC_PROCESS  A
+							INNER JOIN ITT_PROCESS_ID_NAME  PID
+								ON PID.CMPY_CODE = A.PRCS_CMPY_CODE
+								AND PID.PRCS_GEN_ID = A.PRCS_GEN_ID							
+							LEFT JOIN PRC_PROCESS_LANG  PL
+								ON PL.PRCS_CMPY_CODE = A.PRCS_CMPY_CODE
+								AND PL.PRCS_GEN_ID = A.PRCS_GEN_ID
+								AND PL.LANG_CODE = #{langCode}
+				WHERE 1=1
+				AND A.PRCS_CMPY_CODE = #{cmpyCode}
+				AND A.DEL_FLAG = 'N'
+		]]>
+		<if test="megaPrcsIdInSql != null and megaPrcsIdInSql != '' ">
+				AND PID.L1_PRCS_GEN_ID IN ( ${megaPrcsIdInSql} )
+		</if>
+		<if test="prcsExecTypeCodeInSql != null and prcsExecTypeCodeInSql != '' ">
+				AND A.PRCS_EXEC_TYPE_CODE IN ( ${prcsExecTypeCodeInSql} )
+		</if>	
+		<if test="prcsId != null and prcsId != ''">
+				AND UPPER(A.PRCS_ID) LIKE '' + UPPER(#{prcsId}) + '%'
+		</if>
+		<if test="prcsNameLangNm != null and prcsNameLangNm != ''">
+				AND (  UPPER(A.PRCS_NAME) LIKE '%' + UPPER(#{prcsNameLangNm}) + '%'	
+					OR UPPER(PL.PRCS_NAME) LIKE '%' + UPPER(#{prcsNameLangNm}) + '%'
+					)
+		</if>
+		<![CDATA[
+				/* 지정된 항목의 부모 항목 */
+				UNION ALL
+				SELECT	A.PRCS_CMPY_CODE
+						, A.PRCS_GEN_ID
+						, A.PARENT_PRCS_GEN_ID
+						, B.LVL - 1 AS LVL
+				FROM	PRC_PROCESS  A
+							INNER JOIN PRCS_CTE  B
+								ON B.PRCS_CMPY_CODE = A.PRCS_CMPY_CODE
+								AND B.PARENT_PRCS_GEN_ID = A.PRCS_GEN_ID
+				WHERE 1=1
+				AND A.PRCS_CMPY_CODE = #{cmpyCode}
+				AND A.DEL_FLAG = 'N'
+			)
+			SELECT	A.PRCS_CMPY_CODE  AS CMPY_CODE
+					, A.PRCS_GEN_ID
+					, A.PARENT_PRCS_GEN_ID
+					, A.PRCS_GEN_ID  AS TREE_ID
+					, A.PARENT_PRCS_GEN_ID  AS TREE_PARENT
+					, A.PRCS_ID
+					, A.PRCS_NAME
+					, PL.PRCS_NAME  AS PRCS_NAME_LANG_NM
+					, A.ACTIVITY_CHK
+					, A.PRCS_LEVEL
+					, A.PRCS_TYPE_CODE
+					, ISNULL((SELECT	T.LANG_NAME
+							  FROM		ITT_MULTI_LANG_DTL  T
+							  WHERE T.LANG_ID = PT.LANG_ID
+							  AND T.LANG_CODE = #{langCode}
+					  ), PT.PRCS_TYPE_KOR_NAME) AS PRCS_TYPE_NAME
+					, A.PRCS_EXEC_TYPE_CODE
+					, ISNULL((SELECT	T.LANG_NAME
+							  FROM		ITT_MULTI_LANG_DTL  T
+							  WHERE T.LANG_ID = PET.LANG_ID
+							  AND T.LANG_CODE = #{langCode}
+					  ), PET.PRCS_EXEC_TYPE_NAME) AS PRCS_EXEC_TYPE_NAME
+			FROM	PRC_PROCESS  A
+						INNER JOIN ITT_PROCESS_ID_NAME  PIN
+							ON PIN.CMPY_CODE = A.PRCS_CMPY_CODE
+							AND PIN.PRCS_GEN_ID = A.PRCS_GEN_ID
+						LEFT JOIN PRC_PROCESS_LANG  PL
+							ON PL.PRCS_CMPY_CODE = A.PRCS_CMPY_CODE
+							AND PL.PRCS_GEN_ID = A.PRCS_GEN_ID
+							AND PL.LANG_CODE = #{langCode}
+						LEFT JOIN CCD_PROCESS_TYPE  PT
+							ON PT.PRCS_TYPE_CODE = A.PRCS_TYPE_CODE
+						LEFT JOIN CCD_PROCESS_EXECUTION_TYPE  PET
+							ON PET.PRCS_EXEC_TYPE_CODE = A.PRCS_EXEC_TYPE_CODE	
+			WHERE 1=1
+			AND A.PRCS_CMPY_CODE = #{cmpyCode}
+			AND A.DEL_FLAG = 'N'
+			AND EXISTS (SELECT	1
+						FROM	PRCS_CTE  X
+						WHERE X.PRCS_CMPY_CODE = A.PRCS_CMPY_CODE
+						AND X.PRCS_GEN_ID = A.PRCS_GEN_ID)
+		]]>
+		<![CDATA[
+			ORDER BY PIN.L1_PRCS_ID, PIN.L2_PRCS_ID, PIN.L3_PRCS_ID, PIN.L4_PRCS_ID, PIN.L5_PRCS_ID, A.PRCS_ID
+		]]>
+	</sql>
+
+	<select id="getDetail" resultMap="vo">	
+       	<![CDATA[
+       		/*	getDetail	*/
+       		
+			SELECT	  A.PRCS_CMPY_CODE  AS CMPY_CODE
+					, A.PRCS_GEN_ID
+					, A.PARENT_PRCS_GEN_ID
+					, PP.PRCS_ID    AS PARENT_PRCS_ID
+					, PP.PRCS_NAME  AS PARENT_PRCS_NAME
+					, A.PRCS_ID
+					, A.PRCS_NAME
+					, A.PRCS_LEVEL
+					, A.PRCS_DEFINITION
+					, A.ACTIVITY_CHK
+					, A.PRCS_TYPE_CODE
+					, A.PRCS_EXEC_TYPE_CODE
+					, ISNULL((SELECT	T.LANG_NAME
+								FROM		ITT_MULTI_LANG_DTL  T
+								WHERE T.LANG_ID = PT.LANG_ID
+								AND T.LANG_CODE = #{langCode}
+						), PT.PRCS_TYPE_KOR_NAME) AS PRCS_TYPE_NAME
+					, ISNULL((SELECT	T.LANG_NAME
+								FROM		ITT_MULTI_LANG_DTL  T
+								WHERE T.LANG_ID = PET.LANG_ID
+								AND T.LANG_CODE = #{langCode}
+						), PET.PRCS_EXEC_TYPE_NAME) AS PRCS_EXEC_TYPE_NAME
+					, A.ROLE_RSPNS
+					, A.INPUT_DATA
+					, A.OUTPUT_DATA
+					, A.DCSN_PRCS_CHK
+					, A.OPRTN_GUIDE
+					, A.USER_ACTIVITY_CHK
+					, A.DEL_FLAG
+			FROM	PRC_PROCESS  A
+						LEFT JOIN PRC_PROCESS  PP
+							ON PP.PRCS_CMPY_CODE = A.PRCS_CMPY_CODE
+							AND PP.PRCS_GEN_ID = A.PARENT_PRCS_GEN_ID
+							AND PP.DEL_FLAG = 'N'
+						LEFT JOIN CCD_PROCESS_TYPE  PT
+							ON PT.PRCS_TYPE_CODE = A.PRCS_TYPE_CODE
+						LEFT JOIN CCD_PROCESS_EXECUTION_TYPE  PET
+							ON PET.PRCS_EXEC_TYPE_CODE = A.PRCS_EXEC_TYPE_CODE	
+			WHERE A.PRCS_CMPY_CODE = #{cmpyCode}
+			AND A.PRCS_GEN_ID = #{prcsGenId}
+
+		]]>
+	</select>
+	
+	<select id="getDetail_langList" resultMap="vo">	
+       	<![CDATA[
+       		/*	getDetail_langList	*/
+       		
+			SELECT	  A.PRCS_GEN_ID
+					, A.LANG_CODE
+					, A.PRCS_NAME
+					, A.PRCS_DEFINITION
+					, A.ROLE_RSPNS
+					, A.INPUT_DATA
+					, A.OUTPUT_DATA
+					, A.OPRTN_GUIDE
+			FROM	PRC_PROCESS_LANG  A
+			WHERE 1=1
+			AND A.PRCS_CMPY_CODE = #{cmpyCode}
+			AND A.PRCS_GEN_ID = #{prcsGenId}
+			ORDER BY A.PRCS_GEN_ID, A.LANG_CODE
+
+		]]>
+	</select>
+	
+	<select id="getDetail_save" resultMap="vo">	
+       	<![CDATA[
+       		/*	getDetail_save	*/
+       		
+			SELECT	  A.PRCS_CMPY_CODE  AS CMPY_CODE
+					, A.PRCS_GEN_ID
+			FROM	PRC_PROCESS  A
+			WHERE A.PRCS_CMPY_CODE = #{cmpyCode}
+			AND A.PRCS_ID = #{prcsId}
+			AND A.DEL_FLAG = 'N'
+
+		]]>
+	</select>
+	
+	<select id="getDetail_save_childprcs" resultMap="vo">	
+       	<![CDATA[
+       		/*	getDetail_save_childprcs - 하위프로세스 존재여부 확인 */
+       		
+			SELECT	  A.PRCS_CMPY_CODE  AS CMPY_CODE
+					, A.PRCS_GEN_ID
+			FROM	PRC_PROCESS  A
+			WHERE A.PRCS_CMPY_CODE = #{cmpyCode}
+			AND A.PARENT_PRCS_GEN_ID = #{prcsGenId}
+			AND A.DEL_FLAG = 'N'
+
+		]]>
+	</select>
+	
+	<insert id="insert_REGREQ_HIST">
+		<![CDATA[
+			/* insert_REGREQ_HIST */
+			
+			INSERT INTO PRC_PROCESS_REGREQ_HIST ( 
+				  PRCS_CMPY_CODE
+				, PRCS_REGREQ_NO
+				, CUD_TYPE
+				, PRCS_GEN_ID
+				, PRCS_ID
+				, PRCS_LEVEL
+				, PRCS_NAME
+				, PRCS_DEFINITION
+				, ACTIVITY_CHK
+				, PRCS_EXEC_TYPE_CODE
+				, ROLE_RSPNS
+				, PRCS_TYPE_CODE
+				, OPRTN_GUIDE
+				, INPUT_DATA
+				, OUTPUT_DATA
+				, DCSN_PRCS_CHK
+				, PARENT_PRCS_CMPY_CODE
+				, PARENT_PRCS_GEN_ID
+				, USER_ACTIVITY_CHK
+				, DEL_FLAG
+				, REG_USER_ID
+				, REG_DATETIME
+				, RST_FLAG
+				, RST_DATETIME
+			) VALUES (
+				  #{cmpyCode}
+				, #{prcsRegreqNo}
+				, #{cudType}
+				, #{prcsGenId}
+				, #{prcsId}
+				, #{prcsLevel}
+				, #{prcsName}
+				, #{prcsDefinition}
+				, #{activityChk}
+				, #{prcsExecTypeCode}
+				, #{roleRspns}
+				, #{prcsTypeCode}
+				, #{oprtnGuide}
+				, #{inputData}
+				, #{outputData}
+				, #{dcsnPrcsChk}
+				, #{parentPrcsCmpyCode}
+				, #{parentPrcsGenId}
+				, #{userActivityChk}
+				, #{delFlag}
+				, #{regUserId}
+				, (GETDATE())
+				, NULL
+				, NULL
+			)
+		]]>
+	</insert>
+	
+	<select id="sp_web_process_regreq_run" resultMap="vo">
+        <![CDATA[
+			EXEC dbo.SP_WEB_PROCESS_REGREQ_RUN #{cmpyCode}, #{prcsRegreqNo}
+        ]]>
+    </select>
+    
+	<!-- 다국어  -->
+	<select id="select_lang" resultMap="vo">	
+        <![CDATA[
+        	/*	select_lang	*/
+        	
+			SELECT	A.PRCS_GEN_ID
+					, A.LANG_CODE
+					, A.PRCS_NAME
+					, A.PRCS_DEFINITION
+					, A.ROLE_RSPNS
+					, A.INPUT_DATA
+					, A.OUTPUT_DATA
+					, A.OPRTN_GUIDE
+			FROM	PRC_PROCESS_LANG  A
+			WHERE 1=1
+			AND A.PRCS_CMPY_CODE = #{cmpyCode}
+			AND A.PRCS_GEN_ID = #{prcsGenId}
+			AND A.LANG_CODE = #{langCode}
+			
+		]]>
+	</select>    
+	
+	<insert id="insert_lang">
+		<![CDATA[
+			/*	insert_lang	*/		
+		
+			INSERT INTO PRC_PROCESS_LANG (
+				  PRCS_CMPY_CODE
+				, PRCS_GEN_ID
+				, LANG_CODE
+				, PRCS_NAME
+				, PRCS_DEFINITION
+				, ROLE_RSPNS
+				, INPUT_DATA
+				, OUTPUT_DATA
+				, OPRTN_GUIDE
+			) VALUES (
+				  #{cmpyCode}
+				, #{prcsGenId}
+				, #{langCode}
+				, #{prcsName}
+				, #{prcsDefinition}
+				, #{roleRspns}
+				, #{inputData}
+				, #{outputData}
+				, #{oprtnGuide}
+			)
+		]]>
+	</insert>
+	
+	<update id="update_lang">
+		<![CDATA[
+			/*	update_lang	*/
+		
+			UPDATE PRC_PROCESS_LANG
+			SET
+				  PRCS_NAME = #{prcsName}
+				, PRCS_DEFINITION = #{prcsDefinition}
+				, ROLE_RSPNS = #{roleRspns}
+				, INPUT_DATA = #{inputData}
+				, OUTPUT_DATA = #{outputData}
+				, OPRTN_GUIDE = #{oprtnGuide}
+			WHERE PRCS_CMPY_CODE = #{cmpyCode}
+			AND PRCS_GEN_ID = #{prcsGenId}
+			AND LANG_CODE = #{langCode}
+		]]>
+	</update>
+	
+	<delete id="childPrcsDelete">
+		<![CDATA[
+			/*  childPrcsDelete */
+			
+			EXEC SP_PRC_PROCESS_BULK_DELETE #{cmpyCode}, #{prcsGenId}, #{prcsLevel}
+		]]>
+	</delete>		
+
+	<insert id="histInsert">
+		<![CDATA[
+			/* histInsert */
+			
+			INSERT INTO ITT_PRCS_CUD_HIST ( 
+				CMPY_CODE
+				,PRCS_GEN_ID
+				,CUD_SEQ
+				,CUD_TYPE
+				,CUD_USER_ID
+				,CUD_DATETIME
+				,PRCS_ID
+				,PRCS_LEVEL
+				,PRCS_NAME
+				,PRCS_DEFINITION
+				,ACTIVITY_CHK
+				,PRCS_TYPE_CODE
+				,PRCS_TYPE_NAME
+				,PRCS_EXEC_TYPE_CODE
+				,PRCS_EXEC_TYPE_NAME
+				,PRCS_EXEC_TYPE_DETAIL_CODE
+				,PRCS_EXEC_TYPE_DETAIL_NAME
+				,DUPLICATE_PRCS_CHK
+				,ROLE_RSPNS
+				,INPUT_DATA
+				,OUTPUT_DATA
+				,DCSN_PRCS_CHK
+				,OPRTN_GUIDE
+				,PARENT_PRCS_CMPY_CODE
+				,PARENT_PRCS_GEN_ID
+				,PARENT_PRCS_ID
+				,USER_ACTIVITY_CHK
+				,DEL_CHK
+				,PRCS_UPLOAD_DATE
+				,PRCS_UPLOAD_NO
+				,DEL_FLAG
+				,PRCS_NAME_KO
+				,PRCS_NAME_EN
+				,PRCS_NAME_ZHCHS
+				,ROLE_RSPNS_KO
+				,ROLE_RSPNS_EN
+				,ROLE_RSPNS_ZHCHS
+				,INPUT_DATA_KO
+				,INPUT_DATA_EN
+				,INPUT_DATA_ZHCHS
+				,OUTPUT_DATA_KO
+				,OUTPUT_DATA_EN
+				,OUTPUT_DATA_ZHCHS
+				,OPRTN_GUIDE_KO
+				,OPRTN_GUIDE_EN
+				,OPRTN_GUIDE_ZHCHS
+			) VALUES (
+				 #{cmpyCode}
+				,#{prcsGenId}
+				,#{cudSeq}
+				,#{cudType}
+				,#{cudUserId}
+				,GETDATE()
+				,#{prcsId}
+				,#{prcsLevel}
+				,#{prcsName}
+				,#{prcsDefinition}
+				,#{activityChk}
+				,#{prcsTypeCode}
+				,#{prcsTypeName}
+				,#{prcsExecTypeCode}
+				,#{prcsExecTypeName}
+				,NULL
+				,NULL
+				,NULL
+				,#{roleRspns}
+				,#{inputData}
+				,#{outputData}
+				,#{dcsnPrcsChk}
+				,#{oprtnGuide}
+				,#{parentPrcsCmpyCode}
+				,#{parentPrcsGenId}
+				,#{parentPrcsId}
+				,#{userActivityChk}
+				,NULL
+				,NULL
+				,NULL
+				,#{delFlag}
+				,#{prcsNameKo}
+				,#{prcsNameEn}
+				,#{prcsNameZhchs}
+				,#{roleRspnsKo}
+				,#{roleRspnsEn}
+				,#{roleRspnsZhchs}
+				,#{inputDataKo}
+				,#{inputDataEn}
+				,#{inputDataZhchs}
+				,#{outputDataKo}
+				,#{outputDataEn}
+				,#{outputDataZhchs}
+				,#{oprtnGuideKo}
+				,#{oprtnGuideEn}
+				,#{oprtnGuideZhchs}
+			)
+		]]>
+	</insert>
+
+
+</mapper>

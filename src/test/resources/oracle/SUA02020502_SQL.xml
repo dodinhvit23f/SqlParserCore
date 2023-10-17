@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+ -  Copyright(c) 2022 ITRION
+ -
+ -  작  성  자 	: 
+ -  최초작성일 	: 2022. 08. 03
+ -  수  정  자 	:
+ -  최종수정일 	:
+ - 
+ -  Desctiption :  Mapper
+-->
+
+<mapper namespace="com.itrion.msCore.tpas.service.impl.SUA02020502Mapper">
+	
+		<select id="getItmCharList" parameterType="com.itrion.msCore.tpas.vo.SUA02020502VO" resultType="com.itrion.msCore.tpas.vo.SUA02020502VO">
+			SELECT COLUMN_ID as columnId -- 올인원 항목 ID
+				       , COLUMN_NM as columnNm -- 올인원 항목명
+				       , SRC_TBL_NM as srcTblNm -- QMS테이블명
+				       , SRC_TBL_ID AS srcTblId -- QMS 테이블 ID
+				       , SRC_COL_ID as srcColId -- QMS테이블 ID
+				       , SRC_COL_NM as srcColNm -- QMS 항목명
+		               , BDP_ATTR_EQP as eqpNm
+				       , BDP_ATTR_EQP_CD as eqpCd
+				       , BDP_ATTR_LOC as locNm
+				       , BDP_ATTR_LOC_CD as locCd
+				       , BDP_ATTR_AID as aidNm
+				       , BDP_ATTR_AID_CD as aidCd
+				       , BDP_ATTR_CHAR as charNm 
+				       , BDP_ATTR_CHAR_CD as charCd
+				       , DISPLAY_YN as displayYn
+				       , BDP_ATTR_EQP as eqpLov
+				       , BDP_ATTR_LOC as locLov
+				       , BDP_ATTR_AID as aidLov
+				       , BDP_ATTR_CHAR as charLov
+			  FROM TPASAO.TB_AO_TPAS_ITMCHAR_M
+			WHERE PTOP_GP  =  #{ptopGp}
+				 AND PLNT_TP_N = #{plntTpN}
+			  	 AND PROC_CD_N =  #{procCdN}
+			  	 AND COLUMN_NM like '%' || #{columnNm} || '%'
+		</select>
+		
+		<select id="getMiTreeLov"  parameterType="com.itrion.msCore.tpas.vo.SUA02020502VO" resultType="com.itrion.msCore.tpas.vo.SUA02020502VO">
+			SELECT ITM_VAL as itmVal
+					  , CD_CONTENTS as cdContent
+					  , CD_CONTENTS as itmNm
+					  , ITM_ID as itmId
+			  FROM TPASAO.TB_AO_TPAS_CODE_M 
+			WHERE STD_ITM_ID = 'MI_TREE_CD' 
+				 AND ITM_ID = #{itmId}
+		</select>
+		
+		<update id="updateItmChar" parameterType="com.itrion.msCore.tpas.vo.SUA02020502VO" >
+			UPDATE TPASAO.TB_AO_TPAS_ITMCHAR_M
+				  SET BDP_ATTR_EQP = #{eqpNm}
+					    , BDP_ATTR_EQP_CD = #{eqpCd}
+					    , BDP_ATTR_LOC = #{locNm}
+					    , BDP_ATTR_LOC_CD = #{locCd}
+					    , BDP_ATTR_AID = #{aidNm}
+					    , BDP_ATTR_AID_CD = #{aidCd}
+					    , BDP_ATTR_CHAR = #{charNm}
+					    , BDP_ATTR_CHAR_CD = #{charCd}
+					    , DISPLAY_YN = #{displayYn}
+					    , MOD_DDTT = SYSDATE
+			WHERE SRC_COL_ID = #{srcColId}
+		</update>
+</mapper>

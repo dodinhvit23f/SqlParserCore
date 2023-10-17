@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+ -  Copyright(c) 2022 ITRION
+ -
+ -  작  성  자 	: khs
+ -  최초작성일 	: 2022. 04. 25
+ -  수  정  자 	:
+ -  최종수정일 	:
+ - 
+ -  Desctiption : CTQ별 품질영향인자분석 Mapper
+-->
+
+<mapper namespace="com.itrion.msCore.tpas.service.impl.SUA02020401Mapper">
+	
+	<sql id="sqlProdRstView_bak">
+		 SELECT DISTINCT A.STL_NO
+	                , A.PTOP_GP
+	                , A.PLNT_TP_N
+	                , A.PROC_CD_N  
+	                , A.ORD_CONV_T
+	                , A.ORD_CONV_W
+	                , TO_CHAR(TO_DATE(A.PDN_APT_DD,'YYYYMMDD'),'YYYY-MM-DD') AS PDN_APT_DD
+	                , A.STKND_GRP
+	                , A.STLKIND_CD
+		            , "key"     AS RST_KEY
+		            , "value"  AS RST_VALUE
+		    FROM TPASPP.TB_PP_MST_MACPTOPWRITM_D A
+		    		, JSON_EACH_TEXT(A.RST)
+		  WHERE A.PTOP_GP = #{ptopGp}              													/* 제품구분	*/												       	
+		       AND "key" NOT IN ('RST_KEY','COIL_NO', 'MODIFIER', 'MOD_DDTT', 'REGISTER', 'REG_DDTT')  /* 불필요한 중복제거 */
+		        <if test="fromDate !='' and fromDate != null and toDate !='' and toDate != null ">
+		       		AND A.PRD_SYN_JDG_APT_DD BETWEEN REPLACE(#{fromDate}, '-','') AND REPLACE(#{toDate}, '-', '')   	/* 제품종합판정일 */
+		        </if>
+		       	<if test="plntTpN !='' and plntTpN != null ">
+		       		AND A.PLNT_TP_N = #{plntTpN}         			/* 공장구분 */
+		       	</if>
+		       	<if test="procCdN !='' and procCdN != null ">
+		       		AND A.PROC_CD_N = #{procCdN}         		/* 공정구분 */
+		       	</if>
+		       	<if test="stlKindCd !='' and stlKindCd != null ">
+		       		AND A.STLKIND_CD = #{stlKindCd}         		/* 강종코드 */
+		       	</if>
+		       	<if test="fromOrdConvT !='' and fromOrdConvT != null ">
+		       		AND A.ORD_CONV_T <![CDATA[ >= ]]> #{fromOrdConvT} 			/* 주문두께 */
+		       	</if>													       	
+		       	<if test="toOrdConvT !='' and toOrdConvT != null ">
+		       		AND A.ORD_CONV_T <![CDATA[ <= ]]> #{toOrdConvT} 				/* 주문두께 */
+		       	</if>
+		       	<if test="fromOrdConvW !='' and fromOrdConvW != null ">
+		       		AND A.ORD_CONV_W <![CDATA[ >= ]]> #{fromOrdConvW} 		/* 주문폭 */
+		       	</if>													       	
+		       	<if test="toOrdConvW !='' and toOrdConvW != null ">
+		       		AND A.ORD_CONV_W <![CDATA[ <= ]]> #{toOrdConvW} 			/* 주문폭 */
+		       	</if>
+	</sql>
+	
+	<sql id="sqlProdRstView_bak2">
+		 SELECT DISTINCT(B.KEY_MTL_NO) AS STL_NO
+		 			, MAC.PTOP_GP	                
+	                , A.KEY_MTL_T AS ORD_CONV_T		/* 주문두께 */
+	                , A.KEY_MTL_W AS ORD_CONV_W	/* 주문폭 */
+	                , TO_CHAR(TO_DATE(B.WRK_INI_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS PDN_APT_DD	/*생산계상일 */
+	                , "key"     AS RST_KEY
+			        , "value"  AS RST_VALUE
+		    FROM TPASPP.TB_PP_MST_MATLLOTTRK_D A
+		            , TPASPP.TB_PP_MST_PROCLOTTRK_D B
+		            , TPASPP.TB_PP_MST_MACPTOPWRITM_D MAC
+		            , JSON_EACH_TEXT(MAC.RST)
+		  WHERE A.KEY_MTL_NO = B.KEY_MTL_NO
+		       AND B.KEY_MTL_NO = MAC.STL_NO
+		       AND MAC.PTOP_GP = #{ptopGp}              													/* 제품구분	*/												       	
+		       AND B.PLNT_PROC_MCNO_CD IN ( SELECT PLNT_PROC_MCNO_CD FROM TPASPP.TB_PP_MST_PLANTPROC_B WHERE AO_LOV_DM like concat(#{procCdN},'%') )         		/* 공정 */
+		       
+				<if test="fromDate !='' and fromDate != null and toDate !='' and toDate != null ">
+					AND B.WRK_INI_DATE BETWEEN REPLACE(#{fromDate}, '-','') AND REPLACE(#{toDate}, '-', '')
+			    </if>			       				       	
+			    <if test="plntTpN !='' and plntTpN != null ">
+			       AND B.PLNT_PROC_MCNO_CD LIKE #{plntTpN} || '%'	 			/* 공장  */
+			    </if>
+			    <if test="fromOrdConvT !='' and fromOrdConvT != null ">
+			      	AND A.KEY_MTL_T <![CDATA[ >= ]]> #{fromOrdConvT}  			/* 주문두께 from */
+			    </if>
+				<if test="toOrdConvT !='' and toOrdConvT != null ">
+			       	AND A.KEY_MTL_T <![CDATA[ <= ]]> #{toOrdConvT}				/* 주문두께 to */
+			    </if>
+			    <if test="fromOrdConvW !='' and fromOrdConvW != null ">
+			       	AND A.KEY_MTL_W <![CDATA[ >= ]]> #{fromOrdConvW} 		/* 주문폭 */
+			    </if>
+			    <if test="toOrdConvW !='' and toOrdConvW != null ">
+			       	AND A.KEY_MTL_W <![CDATA[ <= ]]> #{toOrdConvW} 			/* 주문폭 */
+			    </if>
+			    <if test="stlKindCd !='' and stlKindCd != null ">
+		       		AND MAC.STLKIND_CD = #{stlKindCd}         		/* 강종코드 */
+		       	</if>
+			    			       
+	</sql>
+	
+	
+	<sql id="sqlProdRstView">		
+		SELECT MAC.STL_NO
+				   , MAC.PTOP_GP
+				   , MAC.PROC_CD_N
+				   , TO_CHAR(TO_DATE(LOT.WRK_INI_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS PDN_APT_DD	/*생산계상일 */
+				   , LOT.ORD_CONV_T
+				   , LOT.ORD_CONV_W 
+				   , "key" AS RST_KEY
+				   , "value" AS RST_VALUE
+		   FROM TPASPP.TB_PP_MST_MACPTOPWRITM_D MAC 
+		   		   ,  JSON_EACH_TEXT(MAC.RST)
+		   		   ,  (SELECT B.KEY_MTL_NO
+		   		    			  , MAX(B.WRK_INI_DATE) WRK_INI_DATE
+		   		    			  , MAX(A.KEY_MTL_T) ORD_CONV_T
+		   		    			  , MAX(A.KEY_MTL_W) ORD_CONV_W
+						  FROM TPASPP.TB_PP_MST_MATLLOTTRK_D A
+						  		  , TPASPP.TB_PP_MST_PROCLOTTRK_D B
+					    WHERE A.KEY_MTL_NO = B.KEY_MTL_NO
+					         AND B.PLNT_PROC_MCNO_CD IN (SELECT PLNT_PROC_MCNO_CD 
+					    															  FROM TPASPP.TB_PP_MST_PLANTPROC_B 
+					    															WHERE AO_LOV_DM = #{procCdN})
+							  
+							<if test="fromDate !='' and fromDate != null and toDate !='' and toDate != null ">
+								AND B.WRK_INI_DATE BETWEEN REPLACE(#{fromDate}, '-','') AND REPLACE(#{toDate}, '-', '')
+						    </if>			       				       	
+						    <if test="plntTpN !='' and plntTpN != null ">
+						       AND B.PLNT_PROC_MCNO_CD LIKE #{plntTpN} || '%'	 			/* 공장  */
+						    </if>
+						    <if test="fromOrdConvT !='' and fromOrdConvT != null ">
+						      	AND A.KEY_MTL_T <![CDATA[ >= ]]>  #{fromOrdConvT}  			/* 주문두께 from */
+						    </if>
+							<if test="toOrdConvT !='' and toOrdConvT != null ">
+						       	AND A.KEY_MTL_T <![CDATA[ <= ]]> #{toOrdConvT}				/* 주문두께 to */
+						    </if>
+						    <if test="fromOrdConvW !='' and fromOrdConvW != null ">
+						       	AND A.KEY_MTL_W <![CDATA[ >= ]]> #{fromOrdConvW} 		/* 주문폭 */
+						    </if>
+						    <if test="toOrdConvW !='' and toOrdConvW != null ">
+						       	AND A.KEY_MTL_W <![CDATA[ <= ]]> #{toOrdConvW} 			/* 주문폭 */
+						    </if>
+					    GROUP BY B.KEY_MTL_NO
+					) LOT
+		WHERE MAC.STL_NO = LOT.KEY_MTL_NO
+		     AND MAC.PROC_CD_N = #{procCdN}
+		     AND MAC.RPROC_CNT = (SELECT MAX(RPROC_CNT) 
+		     											FROM TPASPP.TB_PP_MST_MACPTOPWRITM_D 
+		     										  WHERE STL_NO = MAC.STL_NO 
+		     										       AND PROC_CD_N = MAC.PROC_CD_N)
+		    <if test="stlKindCd !='' and stlKindCd != null ">
+	       		AND MAC.STLKIND_CD = #{stlKindCd}         		/* 강종코드 */
+			</if>			 
+			
+	</sql>
+	
+	
+ 	<select id="getCtqInfo"  parameterType="com.itrion.msCore.tpas.vo.CtqInfoVO" resultType="com.itrion.msCore.tpas.vo.CtqInfoVO" >
+		SELECT /* CTQ별 품질영향인자분석 : CTQ 조회 [SUA02020401Mapper.getCtqInfo] CreatedBy khs */
+		             CTQ_ID		AS ctqId
+				   , CTQ_NAME || CASE WHEN EMPNO = #{empno} THEN ' (M)'
+				   				WHEN EMPNO != #{empno} THEN ' (P)' END	AS ctqName
+				   , PTOP_GP	AS ptopGp
+		  FROM (
+		   				SELECT *
+		   				  FROM (
+				   				  	SELECT 1 as ord, tc.*
+				   				  		FROM TPASAO.TB_AO_TPAS_CTQMGTAIM_B tc
+				   				  	  WHERE EMPNO = #{empno}
+				   				  	   UNION
+				   				  	SELECT 2 as ord, tc.*
+				   				  		FROM TPASAO.TB_AO_TPAS_CTQMGTAIM_B tc
+				   				  	  WHERE EMPNO != #{empno}
+				   				  	  	   AND PUBLIC_YN = 'Y'
+		   				  			) tc
+		   				  ORDER BY tc.ord
+		   			) tc
+		 ORDER BY  ord, CTQ_ID 
+  	</select>
+  
+  	<select id="getPlanTpInfo"  parameterType="com.itrion.msCore.common.vo.LovCdVO" resultType="com.itrion.msCore.common.vo.LovCdVO">
+		SELECT /* CTQ별 품질영향인자분석 : 공장 조회 [SUA02020401Mapper.getPlanTpInfo] CreatedBy khs */
+		             LOV.PLNT_TP_N			AS plntTpN
+		           , LOV.CD_CONTENTS	AS cdContents
+		   FROM TPASAO.TB_AO_TPAS_LOV_M LOV
+		 WHERE LOV.ITM_ID = 'PLNT_TP_N'
+		      AND LOV.PTOP_GP = #{ptopGp}
+		 ORDER BY LOV.SORT_SEQ 
+	</select>
+  
+  	<select id="getProcInfo"  parameterType="com.itrion.msCore.common.vo.LovCdVO" resultType="com.itrion.msCore.common.vo.LovCdVO">
+		SELECT /* CTQ별 품질영향인자분석 : 공정 조회 [SUA02020401Mapper.getProcInfo] CreatedBy khs */
+		             LOV.PROC_CD_N			AS procCdN
+		           , LOV.CD_CONTENTS	AS cdContents
+		   FROM TPASAO.TB_AO_TPAS_LOV_M LOV
+		 WHERE LOV.ITM_ID = 'PROC_CD_N'
+		      AND LOV.PLNT_TP_N = #{plntTpN}
+		 ORDER BY LOV.SORT_SEQ 
+	</select>
+  	
+  	<select id="getVfList"  parameterType="com.itrion.msCore.tpas.vo.SUA02020401VO" resultType="com.itrion.msCore.tpas.vo.SUA02020401VO">
+  		SELECT /* CTQ별 품질영향인자분석 : 영향인자항목 조회 [SUA02020401Mapper.getVfList] CreatedBy khs */
+  		             VF_NAME as vfName
+  		           , CONCAT(CTQ_ID,VF_ID) as vfId
+	       FROM TPASAO.TB_AO_TPAS_VFSTMP_B
+		 WHERE CTQ_ID = #{ctqId}
+	</select>
+	
+  	<select id="getCtqStndDevStatus" parameterType="com.itrion.msCore.tpas.vo.SUA02020401VO" resultType="java.util.HashMap">
+		WITH PROD_RST_VIEW AS (  
+			<include refid="sqlProdRstView" />
+		)
+		SELECT /* CTQ별 품질영향인자분석 : 영향인자 관리기준 이탈 현황 조회 [SUA02020401Mapper.getCtqStndDevStatus] CreatedBy khs */
+		             MAX(CASE WHEN CTQ_AIM_TYPE = 'A' THEN '부적합률' ELSE CTQ_AIM_TYPE END || ' ' || CTQ_AIM || '%') AS  "ctqAim"		/* CTQ목표관리*/
+		           , ROUND((SUM(DEV_TOT_COUNT) / COUNT(*)) * 100, 2) || '%' AS "ctqRst"	/*CTQ실적*/
+		           , COUNT(*) 						AS "pdnCoilQty" 	/* 코일 수 */
+		           , SUM(DEV_MIN_COUNT)	AS "devtMin"			/* MIN 이탈 */
+		           , SUM(DEV_MAX_COUNT)	AS "devtMax"		/* MAX 이탈*/
+		           , SUM(DEV_TOT_COUNT) 	AS "devTot"			/* 이탈 갯수 합*/
+		           <foreach collection="ctqList" item="SUA02020401VO" index="idx" >
+		           		, SUM(${SUA02020401VO.vfId}_MIN_COUNT) AS "${SUA02020401VO.vfId}Min"		/* VF MIN 이탈 */
+		           		, SUM(${SUA02020401VO.vfId}_MAX_COUNT) AS "${SUA02020401VO.vfId}Max"	/* VF MAX 이탈 */
+		           		, ROUND( (SUM(${SUA02020401VO.vfId}_TOT_COUNT)/ COUNT(*)) * 100, 2) || '%' AS "${SUA02020401VO.vfId}Rate"		/* VF 점유율 */
+		           </foreach>
+		   FROM ( 
+						SELECT CTQ_AIM_TYPE
+						           , CB.CTQ_AIM
+						           , RV.STL_NO
+						           , NVL(SUM(CASE WHEN RV.RST_VALUE <![CDATA[ < ]]>  VB.VF_BAS_MIN_VALUE THEN 1 ELSE 0 END),0) AS DEV_MIN_COUNT
+						           , NVL(SUM(CASE WHEN RV.RST_VALUE <![CDATA[ > ]]>  VB.VF_BAS_MAX_VALUE THEN 1 ELSE 0 END),0) AS DEV_MAX_COUNT
+						           , CASE WHEN SUM(CASE WHEN RV.RST_VALUE <![CDATA[ < ]]>  VB.VF_BAS_MIN_VALUE OR RV.RST_VALUE <![CDATA[ > ]]> VB.VF_BAS_MAX_VALUE THEN 1 ELSE 0 END) > 0 THEN 1 ELSE 0 END AS DEV_TOT_COUNT
+						           
+						           <foreach collection="ctqList" item="SUA02020401VO" index="idx" >
+						           , NVL(SUM(CASE WHEN CONCAT(VB.CTQ_ID, VF_ID) = #{SUA02020401VO.vfId} THEN CASE WHEN RV.RST_VALUE <![CDATA[ < ]]>  VB.VF_BAS_MIN_VALUE THEN 1 ELSE 0 END ELSE NULL END),0) AS ${SUA02020401VO.vfId}_MIN_COUNT
+						           , NVL(SUM(CASE WHEN CONCAT(VB.CTQ_ID, VF_ID) = #{SUA02020401VO.vfId} THEN CASE WHEN RV.RST_VALUE <![CDATA[ > ]]> VB.VF_BAS_MAX_VALUE THEN 1 ELSE 0 END ELSE NULL END),0) AS ${SUA02020401VO.vfId}_MAX_COUNT
+						           , CASE WHEN SUM(CASE WHEN CONCAT(VB.CTQ_ID, VF_ID) = #{SUA02020401VO.vfId} THEN CASE WHEN RV.RST_VALUE <![CDATA[ < ]]> VB.VF_BAS_MIN_VALUE OR RV.RST_VALUE <![CDATA[ >]]> VB.VF_BAS_MAX_VALUE THEN 1 ELSE 0 END ELSE NULL END) > 0 THEN 1 ELSE 0 END AS ${SUA02020401VO.vfId}_TOT_COUNT		           	
+						           </foreach>
+						           
+						   FROM TPASAO.TB_AO_TPAS_CTQMGTAIM_B CB
+						           , TPASAO.TB_AO_TPAS_VFSTMP_B VB
+						           , PROD_RST_VIEW RV
+						 WHERE CB.CTQ_ID = VB.CTQ_ID
+						      AND VB.VF_RST_COL_ID = RV.RST_KEY  
+						      AND VB.CTQ_ID  = #{ctqId}						      
+						 GROUP BY CTQ_AIM_TYPE
+						                , CB.CTQ_AIM
+						                , RV.STL_NO
+			)			
+			
+  	</select>
+  	
+	<select id="getCtqCoilList" parameterType="com.itrion.msCore.tpas.vo.SUA02020401VO" resultType="com.itrion.msCore.tpas.vo.SUA02020401VO">
+  		WITH PROD_RST_VIEW AS (  
+  			<include refid="sqlProdRstView" />												       	 
+		)
+		SELECT /* CTQ별 품질영향인자분석 : 코일 리스트 조회 [SUA02020401Mapper.getCtqCoilList] CreatedBy khs */
+					 STL_NO					AS stlNo
+				   , PDN_APT_DD 			AS pdnAptDd 
+				   , ORD_CONV_T 			AS ordConvT
+				   , ORD_CONV_W 		AS ordConvW
+				   , ORD_CONV_SPEC 	AS ordConvSpec
+		           , PDN_COIL_QTY 		AS pdnCoilQty
+		           , COIL_MIN_QTY		AS coilMinQty
+		           , COIL_MAX_QTY 		AS coilMaxQty
+		           , COIL_TOT_QTY		AS coilTotQty
+		  FROM (
+						SELECT RV.STL_NO
+								   , RV.PDN_APT_DD 
+								   , RV.ORD_CONV_T
+								   , RV.ORD_CONV_W
+								   , CASE WHEN RV.ORD_CONV_T <![CDATA[ < ]]> 1 THEN TO_CHAR(RV.ORD_CONV_T,'FM990.999') ELSE TO_CHAR(RV.ORD_CONV_T) END 
+								   		|| ' * ' || CASE WHEN RV.ORD_CONV_W  <![CDATA[ < ]]> 1  THEN TO_CHAR(RV.ORD_CONV_W,'FM990.9') ELSE TO_CHAR(RV.ORD_CONV_W) END AS ORD_CONV_SPEC
+						           , COUNT(*) 				AS PDN_COIL_QTY
+						           , SUM(CASE WHEN RV.RST_VALUE <![CDATA[ < ]]> VB.VF_BAS_MIN_VALUE THEN 1 ELSE 0 END) 	AS COIL_MIN_QTY
+						           , SUM(CASE WHEN RV.RST_VALUE <![CDATA[ > ]]> VB.VF_BAS_MAX_VALUE THEN 1 ELSE 0 END) AS COIL_MAX_QTY
+						           , SUM(CASE WHEN RV.RST_VALUE <![CDATA[ < ]]> VB.VF_BAS_MIN_VALUE OR RV.RST_VALUE <![CDATA[ > ]]> VB.VF_BAS_MAX_VALUE THEN 1 ELSE 0 END) AS COIL_TOT_QTY
+						   FROM TPASAO.TB_AO_TPAS_VFSTMP_B VB
+						           , PROD_RST_VIEW RV
+						 WHERE VB.VF_RST_COL_ID = RV.RST_KEY  
+						      AND VB.CTQ_ID  = #{ctqId}		      
+					     GROUP BY RV.STL_NO
+					      			     , RV.PDN_APT_DD
+					      			     , RV.ORD_CONV_T
+										 , RV.ORD_CONV_W
+		) X
+		<where>
+			<if test='schVfChk == "Y" '>
+		 		COIL_TOT_QTY > 0
+		 	</if>
+		 </where>
+		 ORDER BY STL_NO
+	      			    , PDN_APT_DD			 
+  	</select>
+  	
+	<select id="getCtqJudgDistStatus" parameterType="com.itrion.msCore.tpas.vo.SUA02020401VO" resultType="com.itrion.msCore.tpas.vo.SUA02020401VO">
+		WITH PROD_RST_VIEW AS (  
+  			<include refid="sqlProdRstView" />												       	 
+		)
+		SELECT /* CTQ별 품질영향인자분석 : 판정결과 분포 현황 조회 [SUA02020401Mapper.getCtqJudgDistStatus] CreatedBy khs */
+					 VB.VF_NAME AS vfName
+				   , VB.CTQ_ID	 
+				   , VB.VF_ID
+				   , TO_CHAR(SUM(CASE WHEN RV.RST_VALUE  <![CDATA[ < ]]>  (VB.VF_BAS_MIN_VALUE * 0.9) THEN 1 ELSE 0 END), '999,999,999') as devtMinCnt
+				   , TO_CHAR(SUM(CASE WHEN (VB.VF_BAS_MIN_VALUE * 0.9) <![CDATA[ <= ]]>  RV.RST_VALUE  AND RV.RST_VALUE  <![CDATA[ < ]]>  VB.VF_BAS_MIN_VALUE  THEN 1 ELSE 0 END), '999,999,999') as stndDevtMinCnt
+				   , TO_CHAR(SUM(CASE WHEN RV.RST_VALUE >= VB.VF_BAS_MIN_VALUE  AND  RV.RST_VALUE <![CDATA[ <= ]]>  VB.VF_BAS_MAX_VALUE THEN 1 ELSE 0 END), '999,999,999') as stndNormCnt
+				   , TO_CHAR(SUM(CASE WHEN VB.VF_BAS_MAX_VALUE <![CDATA[ < ]]>  RV.RST_VALUE AND  RV.RST_VALUE <![CDATA[ <= ]]>  (VB.VF_BAS_MAX_VALUE * 1.1)  THEN 1 ELSE 0 END), '999,999,999') as stndDevtMaxCnt
+				   , TO_CHAR(SUM(CASE WHEN (VB.VF_BAS_MAX_VALUE * 1.1) <![CDATA[ < ]]>  RV.RST_VALUE THEN 1 ELSE 0 END), '999,999,999') as devtMaxCnt
+			       , TO_CHAR(ROUND(((SUM(CASE WHEN RV.RST_VALUE <![CDATA[ < ]]> (VB.VF_BAS_MIN_VALUE * 0.9) THEN 1 ELSE 0 END) / COUNT(*)) * 100), 2), 'FM990.09') AS devtMinRate
+			       , TO_CHAR(ROUND(((SUM(CASE WHEN (VB.VF_BAS_MIN_VALUE * 0.9) <![CDATA[ <= ]]> RV.RST_VALUE  AND RV.RST_VALUE <![CDATA[ < ]]> VB.VF_BAS_MIN_VALUE  THEN 1 ELSE 0 END)  / COUNT(*)) * 100), 2), 'FM990.09') AS stndDevtMinRate  
+			       , TO_CHAR(ROUND(((SUM(CASE WHEN RV.RST_VALUE >= VB.VF_BAS_MIN_VALUE  AND  RV.RST_VALUE <![CDATA[ <= ]]> VB.VF_BAS_MAX_VALUE THEN 1 ELSE 0 END)  / COUNT(*)) * 100), 2), 'FM990.09') AS  stndNormRate
+			       , TO_CHAR(ROUND(((SUM(CASE WHEN VB.VF_BAS_MAX_VALUE <![CDATA[ < ]]> RV.RST_VALUE AND  RV.RST_VALUE <![CDATA[ <= ]]> (VB.VF_BAS_MAX_VALUE * 1.1)  THEN 1 ELSE 0 END) / COUNT(*)) * 100), 2), 'FM990.09') AS stndDevtMaxRate
+			       , TO_CHAR(ROUND(((SUM(CASE WHEN (VB.VF_BAS_MAX_VALUE * 1.1) <![CDATA[ < ]]> RV.RST_VALUE THEN 1 ELSE 0 END) / COUNT(*)) * 100), 2), 'FM990.09') AS devtMaxRate
+		   FROM TPASAO.TB_AO_TPAS_VFSTMP_B VB
+		           , PROD_RST_VIEW RV
+		 WHERE VB.VF_RST_COL_ID = RV.RST_KEY(+)  
+		      AND VB.CTQ_ID  = #{ctqId}
+	     GROUP BY VB.VF_NAME
+	                     , VB.CTQ_ID
+	                     , VB.VF_ID
+	     ORDER BY VB.CTQ_ID   
+	     				, VB.VF_ID          
+	</select>
+	
+	<select id="getCtqJudgResult" parameterType="com.itrion.msCore.tpas.vo.SUA02020401VO" resultType="com.itrion.msCore.tpas.vo.SUA02020401VO">
+		WITH PROD_RST_VIEW AS (  
+  			<include refid="sqlProdRstView" />												       	 
+		)
+		SELECT /* CTQ별 품질영향인자분석 : 영양인자 판정 결과 [SUA02020401Mapper.getCtqJudgResult] CreatedBy khs */
+					 RV.STL_NO 	AS stlNo
+		           , ROW_NUMBER() OVER (PARTITION BY RV.STL_NO ORDER BY VB.VF_NAME) AS seq
+		           , VB.VF_NAME					AS vfName
+		           , VB.VF_BAS_AIM_VALUE	AS vfBasAimValue
+		           , VB.VF_BAS_MIN_VALUE	AS vfBasMinValue
+		           , VB.VF_BAS_MAX_VALUE	AS vfBasMaxValue
+		           , RV.RST_VALUE				AS vfBasRstValue
+		   FROM TPASAO.TB_AO_TPAS_VFSTMP_B VB
+		           , PROD_RST_VIEW RV
+		 WHERE VB.VF_RST_COL_ID = RV.RST_KEY
+		      AND VB.CTQ_ID  = #{ctqId}         
+		 ORDER BY RV.STL_NO
+		                , VB.CTQ_ID    
+	</select>
+	
+</mapper>

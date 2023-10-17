@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+ -  Copyright(c) 2022 ITRION
+ -
+ -  작  성  자 	: 김남균
+ -  최초작성일 	: 2022. 05. 06
+ -  수  정  자 	:
+ -  최종수정일 	:
+ - 
+ -  Desctiption : CTQ별 품질영향인자 항목 추가 Mapper
+-->
+
+<mapper namespace="com.itrion.msCore.tpas.service.impl.SUA02020407Mapper">
+
+  <!-- CTQ관리번호 조회 -->
+  <select id="getCtqMgtAimInfo" parameterType="com.itrion.msCore.tpas.vo.SUA02020407VO" resultType="com.itrion.msCore.tpas.vo.SUA02020407VO">
+	SELECT  /* CTQ관리번호 조회 [SUA02020407Mapper.getCtqMgtAimInfo] Created By JPY */
+				 CTQ_ID										AS ctqId
+				 , CTQ_NAME								AS ctqName
+				 , PTOP_GP									AS ptopGp
+				 , PLNT_TP_N								AS plntTpN
+				 , PROC_CD_N								AS procCdN
+				 , EMPNO										AS empno
+				 , TST_ORD_YN							AS tstOrdYn
+				 , ITEMNAME_CD							AS itemnameCd
+				 , COIL_MQC									AS coilMqc
+				 , STLKIND_CD								AS stlkindCd
+				 , SPC_AVR									AS spcAvr
+				 , ORD_USG_CD							AS ordUsgCd
+				 , THK_RNG_ABV							AS thkRngAbv
+				 , THK_RNG_BLW							AS thkRngBlw
+				 , WTH_RNG_ABV							AS wthRngAbv
+				 , WTH_RNG_BLW							AS wthRngBlw
+				 , DMD_CUS_CD							AS dmdCusCd
+				 , CTQ_AIM									AS ctqAim
+				 , REGISTER									AS register
+				 , REG_DDTT								AS regDdtt
+				 , CREATED_PROGRAM_ID			AS createdProgramId
+				 , MODIFIER									AS modifier
+				 , MOD_DDTT								AS modDdtt
+				 , LAST_UPDATE_PROGRAM_ID	AS lastUpdateProgramId
+				 , FLT_CD_TXT								AS fltCdTxt
+				 , CTQ_AIM_TYPE							AS ctqAimType
+	  FROM TPASAO.TB_AO_TPAS_CTQMGTAIM_B
+	  <where>
+	  	<if test="ptopGp != null and ptopGp != ''">
+	  		PTOP_GP = #{ptopGp}
+	  	</if>
+	  	<if test="ctqId != null and ctqId != ''">
+	  		AND CTQ_ID = #{ctqId}
+	  	</if>
+	  </where> 
+  </select>
+  
+  <!-- 영향인자 분석기준 조회 -->
+  <select id="getVfsTmpInfo" parameterType="com.itrion.msCore.tpas.vo.SUA02020407VO" resultType="com.itrion.msCore.tpas.vo.SUA02020407VO">
+	SELECT  /* 영향인자 분석기준 조회 [SUA02020407Mapper.getVfsTmpInfo] Created By JPY */
+				 cb.CTQ_ID														AS ctqId
+				 , cb.CTQ_NAME 												AS ctqName
+				 , vb.VF_NAME													AS vfName
+				 , vb.VF_ID														AS vfId
+				 , vb.VF_BAS_MIN_VALUE									AS vfBasMinValue
+				 , vb.VF_BAS_MAX_VALUE									AS vfBasMaxValue
+				 , vb.VF_BAS_AIM_VALUE									AS vfBasAimValue
+				 , TO_CHAR(vb.REG_DDTT, 'YYYY-MM-DD')		AS regDdtt
+				 , vb.REGISTER													AS register
+				 , vb.VF_RST_COL_TBL_ID								AS vfRstColTblId
+				 , vb.VF_RST_COL_ID										AS vfRstColId
+				 , vb.VF_RST_COL_NAME									AS vfRstColName
+	  FROM TPASAO.TB_AO_TPAS_VFSTMP_B vb
+	    JOIN  TPASAO.TB_AO_TPAS_CTQMGTAIM_B cb
+	       ON vb.CTQ_ID = cb.CTQ_ID
+	  <where>
+	  		<if test="ptopGp != null and ptopGp != ''">
+	  			cb.PTOP_GP = #{ptopGp}
+	  		</if>
+	  		<if test="ctqId != null and ctqId != ''">
+	  			AND vb.CTQ_ID = #{ctqId}
+	  		</if>
+	  		<if test="vfId != null and vfId != ''">
+	  			AND vb.VF_ID = #{vfId}
+	  		</if>
+	  		<if test="ctqName != null and ctqName != ''">
+	  			AND cb.CTQ_NAME LIKE '%' || #{ctqName} || '%'
+	  		</if>
+	  </where>
+	  ORDER BY cb.CTQ_ID, vb.VF_ID
+  </select>
+ 
+</mapper>

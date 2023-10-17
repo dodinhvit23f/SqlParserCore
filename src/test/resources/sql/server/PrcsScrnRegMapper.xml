@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="bar.prc.mapper.PrcsScrnRegMapper">
+
+	<resultMap id="vo" type="bar.prc.vo.PrcsScrnRegVO"/>
+	<resultMap id="map" type="map"/>
+	
+	<select id="getList_prcs_tree" resultMap="vo">	
+		<include refid="getListSql_tree" />
+	</select>
+	
+	<select id="getList_scrn" resultMap="vo">	
+		<include refid="getListSql_scrn" />
+	</select>	
+	
+	<select id="getList_save" resultMap="vo">	
+		<include refid="getListSql_save" />
+	</select>		
+	
+	<sql    id="getListSql_tree">
+		<![CDATA[
+			/*	getListSql_tree	*/
+			
+			WITH PRCS_CTE AS 
+			(
+				/* 검색조건 */
+				SELECT	A.PRCS_CMPY_CODE
+						, A.PRCS_GEN_ID
+						, A.PARENT_PRCS_GEN_ID
+						, 99 AS LVL
+				FROM	PRC_PROCESS  A
+							INNER JOIN ITT_PROCESS_ID_NAME  PID
+								ON PID.CMPY_CODE = A.PRCS_CMPY_CODE
+								AND PID.PRCS_GEN_ID = A.PRCS_GEN_ID
+							LEFT JOIN PRC_PROCESS_LANG  PL
+								ON PL.PRCS_CMPY_CODE = A.PRCS_CMPY_CODE
+								AND PL.PRCS_GEN_ID = A.PRCS_GEN_ID
+								AND PL.LANG_CODE = #{langCode}																	
+				WHERE 1=1
+				AND A.PRCS_CMPY_CODE = #{cmpyCode}
+				AND A.DEL_FLAG = 'N'
+				AND A.PRCS_EXEC_TYPE_CODE = '0002'
+		]]>
+		<if test="megaPrcsIdInSql != null and megaPrcsIdInSql != '' ">
+				AND PID.L1_PRCS_GEN_ID IN ( ${megaPrcsIdInSql} )
+		</if>
+		<if test="prcsIdName != null and prcsIdName != ''">
+				AND (1=2
+						OR UPPER(A.PRCS_ID) LIKE '' + UPPER(#{prcsIdName}) + '%'
+						OR UPPER(A.PRCS_NAME) LIKE '%' + UPPER(#{prcsIdName}) + '%'
+					)
+		</if>
+		<if test="prcsNameLangNm != null and prcsNameLangNm != ''">
+				AND UPPER(PL.PRCS_NAME) LIKE '%' + UPPER(#{prcsNameLangNm}) + '%'					
+		</if>
+		<![CDATA[
+				/* 지정된 항목의 부모 항목 */
+				UNION ALL
+				SELECT	A.PRCS_CMPY_CODE
+						, A.PRCS_GEN_ID
+						, A.PARENT_PRCS_GEN_ID
+						, B.LVL - 1 AS LVL
+				FROM	PRC_PROCESS  A
+							INNER JOIN PRCS_CTE  B
+								ON B.PRCS_CMPY_CODE = A.PRCS_CMPY_CODE
+								AND B.PARENT_PRCS_GEN_ID = A.PRCS_GEN_ID
+				WHERE 1=1
+				AND A.PRCS_CMPY_CODE = #{cmpyCode}
+				AND A.DEL_FLAG = 'N'
+			)
+			SELECT	A.PRCS_CMPY_CODE  AS CMPY_CODE
+					, A.PRCS_GEN_ID
+					, A.PARENT_PRCS_GEN_ID
+					, A.PRCS_GEN_ID  AS TREE_ID
+					, A.PARENT_PRCS_GEN_ID  AS TREE_PARENT
+					, A.PRCS_ID
+					, A.PRCS_NAME
+					, PL.PRCS_NAME  AS PRCS_NAME_LANG_NM
+					, A.ACTIVITY_CHK
+					, A.PRCS_LEVEL
+					, A.PRCS_TYPE_CODE
+					, PT.PRCS_TYPE_KOR_NAME AS PRCS_TYPE_NAME
+					, PET.PRCS_EXEC_TYPE_NAME AS PRCS_EXEC_TYPE_NAME
+					, PTC.SCRN_CNT
+			FROM	PRC_PROCESS  A
+						INNER JOIN ITT_PROCESS_ID_NAME  PIN
+							ON PIN.CMPY_CODE = A.PRCS_CMPY_CODE
+							AND PIN.PRCS_GEN_ID = A.PRCS_GEN_ID
+						LEFT JOIN PRC_PROCESS_LANG  PL
+							ON PL.PRCS_CMPY_CODE = A.PRCS_CMPY_CODE
+							AND PL.PRCS_GEN_ID = A.PRCS_GEN_ID
+							AND PL.LANG_CODE = #{langCode}
+						LEFT JOIN CCD_PROCESS_TYPE  PT
+							ON PT.PRCS_TYPE_CODE = A.PRCS_TYPE_CODE
+						LEFT JOIN CCD_PROCESS_EXECUTION_TYPE  PET
+							ON PET.PRCS_EXEC_TYPE_CODE = A.PRCS_EXEC_TYPE_CODE	
+						LEFT JOIN (
+									SELECT B.PRCS_CMPY_CODE
+										 , B.PRCS_GEN_ID
+										 , COUNT(B.SCRN_ID) AS SCRN_CNT
+									FROM SYS_ACTIVITY_NON_ERP_SCREEN B
+									INNER JOIN PRC_PROCESS C
+										ON C.PRCS_CMPY_CODE = B.PRCS_CMPY_CODE
+										AND C.PRCS_GEN_ID = B.PRCS_GEN_ID
+										AND C.PRCS_EXEC_TYPE_CODE = '0002'
+										AND C.DEL_FLAG = 'N'
+									INNER JOIN SYS_SCREEN D
+										ON D.SCRN_CMPY_CODE = B.SCRN_CMPY_CODE
+										AND D.SCRN_ID = B.SCRN_ID
+										AND D.DEL_FLAG = 'N'
+									WHERE B.PRCS_CMPY_CODE = #{cmpyCode}
+									AND B.SCRN_CMPY_CODE = #{cmpyCode}
+									GROUP BY B.PRCS_CMPY_CODE, B.PRCS_GEN_ID
+								   ) PTC
+							ON PTC.PRCS_CMPY_CODE = A.PRCS_CMPY_CODE
+							AND PTC.PRCS_GEN_ID = A.PRCS_GEN_ID
+								   
+			WHERE 1=1
+			AND A.PRCS_CMPY_CODE = #{cmpyCode}
+			AND A.DEL_FLAG = 'N'
+			AND EXISTS (SELECT	1
+						FROM	PRCS_CTE  X
+						WHERE X.PRCS_CMPY_CODE = A.PRCS_CMPY_CODE
+						AND X.PRCS_GEN_ID = A.PRCS_GEN_ID)
+		]]>
+		<![CDATA[
+			ORDER BY PIN.L1_PRCS_ID, PIN.L2_PRCS_ID, PIN.L3_PRCS_ID, PIN.L4_PRCS_ID, PIN.L5_PRCS_ID, A.PRCS_ID
+		]]>
+	</sql>
+	
+	<sql    id="getListSql_scrn">
+		<![CDATA[
+          /*  getListSql_scrn  */
+          
+			SELECT 
+					 A.SCRN_ID
+					,A.SCRN_NAME
+					,TL.SCRN_NAME			AS SCRN_NAME_LANG_NM
+					,A.SCRN_CMPY_CODE		AS CMPY_CODE
+					,C.PRCS_EXEC_TYPE_DETAIL_CODE
+					,C.PRCS_EXEC_TYPE_DETAIL_NAME
+					,A.DEL_FLAG						
+			FROM	SYS_SCREEN A
+				LEFT OUTER JOIN CCD_PROCESS_EXECUTION_TYPE B 
+							ON B.PRCS_EXEC_TYPE_CODE  = A.PRCS_EXEC_TYPE_CODE
+				LEFT OUTER JOIN CCD_PROCESS_EXECUTION_TYPE_DETAIL C 
+							ON C.PRCS_EXEC_TYPE_CODE  = A.PRCS_EXEC_TYPE_CODE
+							AND C.PRCS_EXEC_TYPE_DETAIL_CODE = A.PRCS_EXEC_TYPE_DETAIL_CODE
+				LEFT OUTER JOIN SYS_SCREEN_LANG TL
+					ON TL.SCRN_CMPY_CODE = A.SCRN_CMPY_CODE
+					AND TL.SCRN_ID = A.SCRN_ID
+					AND TL.LANG_CODE = #{langCode}
+			WHERE A.SCRN_CMPY_CODE= #{cmpyCode}
+			AND A.PRCS_EXEC_TYPE_CODE = '0002'
+			AND A.DEL_FLAG = 'N'
+		]]>
+		<if test="prcsExecTypeDetailCodeInSql != null and prcsExecTypeDetailCodeInSql != ''">
+			AND  C.PRCS_EXEC_TYPE_DETAIL_CODE in( ${prcsExecTypeDetailCodeInSql} )
+		</if>
+		<if test="scrnIdName != null and scrnIdName != ''">
+			AND ( UPPER(A.SCRN_ID) like '%' + UPPER(#{scrnIdName}) + '%'
+				OR  UPPER(A.SCRN_NAME) like '%' + UPPER(#{scrnIdName}) + '%' )
+		</if>
+		<if test="scrnNameLangNm != null and scrnNameLangNm != ''">
+			AND ( UPPER(TL.SCRN_NAME) like '%' + UPPER(#{scrnNameLangNm}) + '%' )
+		</if>			
+			ORDER BY A.SCRN_ID
+	</sql>	
+	
+	<sql    id="getListSql_save">
+		<![CDATA[
+        	/*	getListSql_save */
+
+			SELECT A.SCRN_CMPY_CODE
+				 , A.SCRN_ID
+				 , B.SCRN_NAME
+				 , B.PRCS_EXEC_TYPE_DETAIL_CODE
+				 , PETD.PRCS_EXEC_TYPE_DETAIL_NAME
+			FROM SYS_ACTIVITY_NON_ERP_SCREEN A
+			INNER JOIN SYS_SCREEN B
+				ON B.SCRN_CMPY_CODE = A.SCRN_CMPY_CODE
+				AND B.SCRN_ID = A.SCRN_ID
+				AND B.PRCS_EXEC_TYPE_CODE = '0002'
+				AND B.DEL_FLAG = 'N'
+			LEFT OUTER JOIN CCD_PROCESS_EXECUTION_TYPE_DETAIL PETD
+				ON PETD.PRCS_EXEC_TYPE_CODE = B.PRCS_EXEC_TYPE_CODE
+				AND PETD.PRCS_EXEC_TYPE_DETAIL_CODE = B.PRCS_EXEC_TYPE_DETAIL_CODE
+			WHERE A.PRCS_CMPY_CODE = #{cmpyCode}
+			AND A.SCRN_CMPY_CODE =#{cmpyCode}
+			AND A.PRCS_GEN_ID = #{prcsGenId}
+		]]>
+		<![CDATA[
+			ORDER BY A.SCRN_ID
+		]]>	
+	</sql>	
+	
+	<insert id="insert">
+		<![CDATA[
+			/* insert */
+				
+			INSERT INTO SYS_ACTIVITY_NON_ERP_SCREEN (
+				PRCS_CMPY_CODE
+			  , PRCS_GEN_ID
+			  , SCRN_CMPY_CODE
+			  , SCRN_ID
+			) VALUES (
+				#{cmpyCode}
+			  , #{prcsGenId}
+			  , #{cmpyCode}
+			  , #{scrnId}
+			)		
+			
+		]]>	
+	</insert>
+	
+	<insert id="insertTst">
+		<![CDATA[
+			/* insert */
+				
+			INSERT INTO TST.dbo.TST_PROCESS_TCODE_SCREEN 
+			SELECT CMPY_CODE
+				 , PRCS_GEN_ID
+				 , TCODE_SCRN_ID
+				 , PRCS_ID
+				 , PRCS_LEVEL
+				 , PRCS_NAME
+				 , TCODE_SCRN_NAME
+				 , PRCS_EXEC_TYPE_CODE
+				 , PRCS_EXEC_TYPE_NAME
+				 , UPLOAD_DATE
+				 , UPLOAD_NO
+			  FROM (
+					SELECT A.PRCS_CMPY_CODE as CMPY_CODE
+						 , A.PRCS_GEN_ID AS PRCS_GEN_ID
+						 , A.SCRN_ID AS TCODE_SCRN_ID
+						 , P.PRCS_ID AS PRCS_ID
+						 , P.PRCS_LEVEL AS PRCS_LEVEL
+						 , P.PRCS_NAME AS PRCS_NAME
+						 , S.SCRN_NAME AS TCODE_SCRN_NAME
+						 , P.PRCS_EXEC_TYPE_CODE AS PRCS_EXEC_TYPE_CODE
+						 , PET.PRCS_EXEC_TYPE_NAME AS PRCS_EXEC_TYPE_NAME
+						 , (SELECT MAX(UPLOAD_DATE) FROM [TST].[dbo].TST_PROCESS_TCODE_SCREEN WHERE CMPY_CODE = #{cmpyCode}) AS UPLOAD_DATE
+						 , (SELECT MAX(UPLOAD_NO) FROM [TST].[dbo].TST_PROCESS_TCODE_SCREEN WHERE CMPY_CODE = #{cmpyCode} AND UPLOAD_DATE = (SELECT MAX(UPLOAD_DATE) FROM [TST].[dbo].TST_PROCESS_TCODE_SCREEN WHERE CMPY_CODE = #{cmpyCode})) AS UPLOAD_NO
+						 , ROW_NUMBER() OVER(PARTITION BY A.PRCS_CMPY_CODE, A.PRCS_GEN_ID, A.SCRN_ID ORDER BY A.PRCS_GEN_ID) AS RN
+					  FROM [REP].[dbo].SYS_ACTIVITY_NON_ERP_SCREEN A
+					INNER JOIN [REP].[dbo].PRC_PROCESS P
+						ON P.PRCS_CMPY_CODE = A.PRCS_CMPY_CODE
+						AND P.PRCS_GEN_ID = A.PRCS_GEN_ID
+						AND P.PRCS_EXEC_TYPE_CODE = '0002'
+						AND P.DEL_FLAG = 'N'
+					INNER JOIN [REP].[dbo].SYS_SCREEN S
+						ON S.SCRN_CMPY_CODE = A.SCRN_CMPY_CODE
+						AND S.SCRN_ID = A.SCRN_ID
+						AND S.PRCS_EXEC_TYPE_CODE = '0002'
+						AND S.DEL_FLAG = 'N'
+					INNER JOIN [REP].[dbo].CCD_PROCESS_EXECUTION_TYPE PET
+						ON PET.PRCS_EXEC_TYPE_CODE = P.PRCS_EXEC_TYPE_CODE		
+					WHERE A.PRCS_CMPY_CODE = #{cmpyCode}
+					  AND A.SCRN_CMPY_CODE = #{cmpyCode}
+					  AND A.PRCS_GEN_ID = #{prcsGenId}
+					  AND S.SCRN_ID = #{scrnId}
+					  AND NOT EXISTS (
+						SELECT 1
+						  FROM [TST].[dbo].TST_PROCESS_TCODE_SCREEN Z
+						 WHERE Z.CMPY_CODE = #{cmpyCode}
+						   AND Z.PRCS_GEN_ID = A.PRCS_GEN_ID
+						   AND Z.TCODE_SCRN_ID = A.SCRN_ID
+						   AND Z.PRCS_EXEC_TYPE_CODE = '0001'
+					)
+			       ) A
+			WHERE 1=1
+  			  AND RN = 1				
+			
+		]]>	
+	</insert>	
+	
+	<delete id="delete">
+			/*  delete */
+			
+			DELETE FROM SYS_ACTIVITY_NON_ERP_SCREEN
+			WHERE PRCS_CMPY_CODE = #{cmpyCode}
+			AND PRCS_GEN_ID = #{prcsGenId}
+			AND SCRN_CMPY_CODE = #{cmpyCode}
+			AND SCRN_ID = #{scrnId}
+	
+	</delete>
+	
+	<delete id="deleteTst">
+			/*  delete */
+			
+			DELETE FROM TST.dbo.TST_PROCESS_TCODE_SCREEN 
+			WHERE CMPY_CODE = #{cmpyCode}
+			AND PRCS_GEN_ID = #{prcsGenId}
+			AND TCODE_SCRN_ID = #{scrnId}
+	
+	</delete>	
+
+
+
+</mapper>
