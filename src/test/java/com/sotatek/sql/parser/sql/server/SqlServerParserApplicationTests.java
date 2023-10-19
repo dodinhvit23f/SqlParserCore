@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.util.ResourceUtils;
 
-import com.sotatek.sql.parser.xml.paser.SqlXmlParser;
+import com.sotatek.sql.parser.paser.xml.SqlXmlParser;
 
 import org.junit.jupiter.api.Test;
 

@@ -1,4 +1,4 @@
-package com.sotatek.sql.parser.dto;
+package com.sotatek.sql.parser.model;
 
 import java.util.List;
 import java.util.Set;
@@ -25,4 +25,6 @@ public class NodeQuery {
   QueryTag queryTag;
   List<NodeQuery> subQueries;
   Set<String> tables;
+  Set<String> selectItems;
+
 }

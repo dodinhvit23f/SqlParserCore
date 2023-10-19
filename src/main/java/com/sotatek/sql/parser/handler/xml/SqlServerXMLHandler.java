@@ -1,4 +1,4 @@
-package com.sotatek.sql.parser.xml.handler;
+package com.sotatek.sql.parser.handler.xml;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 import com.sotatek.sql.parser.constant.QueryTag;
-import com.sotatek.sql.parser.dto.NodeQuery;
+import com.sotatek.sql.parser.model.NodeQuery;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -94,6 +94,7 @@ public class SqlServerXMLHandler extends DefaultHandler {
               .id(entry.getKey())
               .queryTag(getSqlTag(query))
               .query(query)
+              .tables(new HashSet<>())
               .build();
         }).collect(Collectors.toSet());
   }

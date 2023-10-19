@@ -1,4 +1,4 @@
-package com.sotatek.sql.parser.xml.paser;
+package com.sotatek.sql.parser.paser.xml;
 
 import org.springframework.stereotype.Service;
 

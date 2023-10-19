@@ -1,4 +1,4 @@
-package com.sotatek.sql.parser.xml.paser;
+package com.sotatek.sql.parser.paser.xml;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,10 +20,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 
-import com.sotatek.sql.parser.constant.QueryTag;
-import com.sotatek.sql.parser.dto.NodeQuery;
-import com.sotatek.sql.parser.xml.handler.SqlServerXMLHandler;
+import com.sotatek.sql.parser.model.NodeQuery;
+import com.sotatek.sql.parser.handler.xml.SqlServerXMLHandler;
 import org.xml.sax.SAXException;
+
+import static com.sotatek.sql.parser.constant.SqlKeyWord.INTO;
 
 @Service
 @FieldDefaults(level = AccessLevel.PRIVATE)
@@ -48,21 +49,30 @@ public class SqlServerXmlParser implements SqlXmlParser {
     return Collections.emptyMap();
   }
 
-  private void handleExtractQueries(Set<NodeQuery> sqlQueries){
-    sqlQueries.forEach( sqlQuery -> {
-      extractSqlSubQueries(sqlQuery);
+  private void handleExtractQueries(Set<NodeQuery> sqlQueries) {
+    sqlQueries.forEach(sqlQuery -> {
+      extractSqlSubQueries(sqlQuery, 0);
     });
   }
 
-  private void extractSqlSubQueries(NodeQuery sqlQuery) {
+  private void extractSqlSubQueries(NodeQuery sqlQuery, int index) {
     String query = sqlQuery.getQuery();
     List<String> words = Arrays.stream(query.split(" "))
         .filter(string -> !ObjectUtils.isEmpty(string.trim()))
         .toList();
 
+    switch (sqlQuery.getQueryTag()) {
+      case SELECT:
+        break;
+      case UPDATE:
+        break;
+      case INSERT:
 
-    if(sqlQuery.getQueryTag() == QueryTag.SELECT){
-
+        break;
+      case EXEC:
+        break;
+      case DELETE:
+        break;
     }
 
     System.out.println();
