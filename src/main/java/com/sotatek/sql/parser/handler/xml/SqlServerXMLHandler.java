@@ -1,14 +1,18 @@
 package com.sotatek.sql.parser.handler.xml;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
 import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.util.ObjectUtils;
 
 import com.sotatek.sql.parser.constant.QueryTag;
 import com.sotatek.sql.parser.model.NodeQuery;
@@ -21,6 +25,7 @@ import static com.sotatek.sql.parser.constant.SqlKeyWord.SELECT;
 import static com.sotatek.sql.parser.constant.SqlKeyWord.UPDATE;
 import static com.sotatek.sql.parser.constant.SqlKeyWord.EXEC;
 import static com.sotatek.sql.parser.constant.SqlKeyWord.DELETE;
+import static com.sotatek.sql.parser.constant.SqlKeyWord.getSqlTag;
 
 @Slf4j
 public class SqlServerXMLHandler extends DefaultHandler {
@@ -89,12 +94,18 @@ public class SqlServerXMLHandler extends DefaultHandler {
     return sqlQueue.entrySet()
         .stream()
         .map(entry -> {
-          String query = entry.getValue().toString().replaceAll("\t" ," ");
+          List<String> query = Arrays.stream(entry.getValue().toString()
+              .replaceAll("\t" ," ")
+              .replaceAll("," ," , ").split(" "))
+              .filter(string -> !ObjectUtils.isEmpty(string.trim()))
+              .toList();
+
           return NodeQuery.builder()
               .id(entry.getKey())
               .queryTag(getSqlTag(query))
               .query(query)
               .tables(new HashSet<>())
+              .subQueries(new ArrayList<>())
               .build();
         }).collect(Collectors.toSet());
   }
@@ -108,14 +119,5 @@ public class SqlServerXMLHandler extends DefaultHandler {
     return Boolean.FALSE;
   }
 
-  QueryTag getSqlTag(String query) {
 
-    for (String keyWord : query.split(" ")) {
-      if (QueryTag.validText(keyWord)) {
-        return QueryTag.valueOf(keyWord);
-      }
-    }
-    log.error("Fail to get task with query: {}", query);
-    throw new RuntimeException("Please valid the input ");
-  }
 }

@@ -20,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 
+import com.sotatek.sql.parser.handler.sql.node.InsertSqlHandle;
 import com.sotatek.sql.parser.model.NodeQuery;
 import com.sotatek.sql.parser.handler.xml.SqlServerXMLHandler;
 import org.xml.sax.SAXException;
@@ -33,6 +34,7 @@ import static com.sotatek.sql.parser.constant.SqlKeyWord.INTO;
 public class SqlServerXmlParser implements SqlXmlParser {
 
   final SAXParserFactory saxParserFactory;
+  final InsertSqlHandle insertSqlHandle;
 
   @Override
   public Map<String, List<String>> getTablesInFile(File xmlFile) {
@@ -51,23 +53,18 @@ public class SqlServerXmlParser implements SqlXmlParser {
 
   private void handleExtractQueries(Set<NodeQuery> sqlQueries) {
     sqlQueries.forEach(sqlQuery -> {
-      extractSqlSubQueries(sqlQuery, 0);
+      extractSqlSubQueries(sqlQuery);
     });
   }
 
-  private void extractSqlSubQueries(NodeQuery sqlQuery, int index) {
-    String query = sqlQuery.getQuery();
-    List<String> words = Arrays.stream(query.split(" "))
-        .filter(string -> !ObjectUtils.isEmpty(string.trim()))
-        .toList();
-
+  private void extractSqlSubQueries(NodeQuery sqlQuery) {
     switch (sqlQuery.getQueryTag()) {
       case SELECT:
         break;
       case UPDATE:
         break;
       case INSERT:
-
+        insertSqlHandle.handleData(sqlQuery, sqlQuery.getQuery());
         break;
       case EXEC:
         break;

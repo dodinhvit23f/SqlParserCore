@@ -21,10 +21,10 @@ import com.sotatek.sql.parser.constant.QueryTag;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class NodeQuery {
   String id;
-  String query;
+  List<String> query;
   QueryTag queryTag;
   List<NodeQuery> subQueries;
   Set<String> tables;
-  Set<String> selectItems;
+  List<String> selectItems;
 
 }

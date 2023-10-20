@@ -1,5 +1,7 @@
 package com.sotatek.sql.parser.constant;
 
+import java.util.List;
+
 public class SqlKeyWord {
 
   public static final String ABSENT = "ABSENT";
@@ -361,5 +363,13 @@ public class SqlKeyWord {
   public static final String YES = "YES";
   public static final String ZONE = "ZONE";
 
+  public static QueryTag getSqlTag(List<String> query) {
 
+    for (String keyWord : query) {
+      if (QueryTag.validText(keyWord)) {
+        return QueryTag.valueOf(keyWord);
+      }
+    }
+    throw new RuntimeException("Please valid the input ");
+  }
 }
